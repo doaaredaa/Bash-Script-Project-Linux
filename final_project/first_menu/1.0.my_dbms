@@ -1,0 +1,106 @@
+#! /usr/bin/bash
+
+#----------------Function No.1-------------------------
+validate_letters_only() {
+# Check if the input allowed only letters
+if [[ "$1" =~ ^[a-zA-Z_]+$ ]] && [[ ${#1} -le 20 ]]; then
+	return 0  # Return success
+else
+        return 1  # Return failure
+fi
+}
+#----------------Function No.2-------------------------
+get_positive_integer() {
+#check if the number of colums is only int & postive
+if [[ "$1" =~ ^[1-9][0-9]*$ ]] && [[ ${#1} -le 20 ]]; then
+	return 0 # Return 0 for valid input (success)
+else
+	return 1 # Return 1 for invalid input (failure)       
+fi
+}
+#----------------Function No.3-------------------------
+validate_anywhere_letters_numbers() {
+if [[ "$1" =~ ^[a-zA-Z0-9_]+$ ]] && [[ ${#1} -le 20 ]]; then
+	return 0
+else
+	return 1
+fi
+}
+#----------------Function No.4-------------------------
+validate_letters_numbers_specific_place() {
+    if [[ "$1" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]] && [[ ${#1} -le 20 ]]; then
+        return 0 # Valid input
+    else
+        return 1 # Invalid input
+    fi
+}
+#----------------------------------------------------------
+validate_letters_spaces() {
+    # Check if the input only contains letters and spaces (but no leading or trailing spaces)
+    if [[ "$1" =~ ^[a-zA-Z]+([[:space:]][a-zA-Z]+)*$ ]] && [[ ${#1} -le 20 ]]; then
+        return 0  # Return success
+    else
+        return 1  # Return failure
+    fi
+}
+#--------------------------------------------------------
+if [ -e $HOME/dbms ]; then
+	clear
+	cd $HOME/dbms
+	echo "Your DBMS is ready Now."
+	while true;
+	do
+        echo "********************************************"
+        echo "               *** MAIN MENU ***            "
+        echo "********************************************"
+	########################################
+	PS3="Please select the option you want from (Main Menu): "
+	select element in \
+	"Create Database" \
+	"List Databases" \
+	"Connect To Databases"\
+	"Drop Database" Exit
+	
+	# select here is a loop
+	do
+		case $element in
+		"Create Database" )
+			. 1.1.create_db
+				break # here he will exit the select loop, to return and redisplay the menu again & running while loop "that have main menu"
+			;;
+	
+		"List Databases" )
+			. 1.2.list_db 
+				break 
+			;;
+
+		"Connect To Databases" )
+			. 1.3.connect_db
+				break 
+			;;
+
+		"Drop Database" )
+			. 1.4.drop_db
+				break 		
+			;;
+		
+		"Exit" )
+			break 2 #here he will exit from the both loops (select loop & while loop)
+
+			;;	
+		*)
+			echo "Unknown Option!"			
+		esac	
+
+	done
+
+	done
+
+########################################################	
+else
+	mkdir $HOME/dbms
+	cd $HOME/dbms
+	echo "Your DBMS is ready Now. "	
+
+fi
+

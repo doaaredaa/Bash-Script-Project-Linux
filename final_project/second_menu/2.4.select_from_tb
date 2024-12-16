@@ -1,0 +1,169 @@
+#! /usr/bin/bash
+#-----------------FORMATING FUNCTION-----------------
+print_header() {
+    local each_element=$1
+    for ((i=1;i<=each_element;i++)); do
+        printf "%-15s" "---------------"
+    done
+    echo
+}
+#Local variables are only accessible within the function where they are declared. This prevents conflicts with variables of the same name outside the function.
+#-----------------FORMATING FUNCTION-----------------
+print_separator() {
+    local each_element=$1
+    local column_names=("${@:2}")
+    for ((i=0;i<each_element;i++)); do
+        printf "%-15s" "|${column_names[i]}"
+        #Prints each column value formatted to a width of 15 characters, prefixed by a |.
+    done
+    echo
+}
+#---------------------------------  
+while true; do
+    read -p "Please Enter your Table Name: " tb_name
+    tb_name=$(echo "$tb_name" | tr ' ' '_') # Replace spaces with underscores
+	if [ -z "$tb_name" ]; then
+		echo "Not Allowed! Table name can't be empty."
+		continue # Go back to asking for the name again	
+		
+	elif ! validate_letters_numbers_specific_place "$tb_name"; then
+        	echo "Invalid input! Table names must start with a letter & Max lenght is 20."
+		continue # Go back to asking for the name again
+		
+	elif [ -e "$HOME/dbms/$db_name/$tb_name" ]; then
+        	cd "$HOME/dbms/$db_name/$tb_name" || exit
+        	echo "Successfully Connected to \"$tb_name\"."
+        	
+        	# File paths
+       		metadata_file="$HOME/dbms/$db_name/$tb_name/${tb_name}.metadata"
+        	data_file="$HOME/dbms/$db_name/$tb_name/${tb_name}.data"
+        	
+        	# Check if required files exist
+        	if [[ ! -f "$metadata_file" || ! -f "$data_file" ]]; then
+          	  echo "Cannot select data. Table structure is incomplete."
+         	  exit 1 #exit to indicate that the script is terminating due to an error condition.
+       		fi
+       		#Here I Extract (columns names & datatype) from metadata to use in insert
+		columns_source=() #this array will use in insert to ensuring data integrity
+		datatypes_source=() #this array will use in insert to ensuring datatype integrity
+		
+		#IFS here is used as Separator in shell general not awk specific 
+		#read -r to read values as it is without changing.
+		while IFS=":" read -r  source_name source_datatype source_pk ; do 
+		#i used variable here io ensure & compare if this column is pk or just normal column 
+		columns_source+=("$source_name") #columns is list vs source is just one element 
+		datatypes_source+=("$source_datatype") #datatypes is list vs source is just one datatype
+			
+			if [[ "$source_pk" == "PK" ]]; then
+				pk_source="$source_pk" #this variable will use in insert to ensuring data integrity
+				  
+			fi	
+		done < "$metadata_file"
+		#----------------------------------------------
+		while true;
+		do
+		echo "********************************************"
+       		echo "          *** SELECTION MENU ***            "
+        	echo "********************************************"
+		PS3="Please select the option you want from (Selection Menu): "
+		select option in \
+		"Select All Data"\
+		"Select With Condition" Exit
+		do
+			case $option in
+			"Select All Data" )
+				echo "Retrieving all data from the table \"$tb_name\" "
+				#--------------------------------JUST FORMATING-----------------------------
+				print_header "${#columns_source[@]}" # Pass the number of columns to print_header
+				print_separator "${#columns_source[@]}" "${columns_source[@]}" # Pass the number of columns and the column names
+				print_header "${#columns_source[@]}" # Pass the number of columns to print_header
+				#--------------------------------END FORMATING-----------------------------
+				#--------------------------------DISPLAY DATA ITSELF-----------------------------
+				# Iterate through each line in the data file
+				while IFS= read -r line; do #IFS= ensures no leading or trailing whitespace is stripped from the line.
+   					# Iterate over each column in the row
+   				 	for ((j=1; j<=${#columns_source[@]}; j++)); do
+     				  		value=$(echo "$line" | cut -d: -f$j) # Extract the j-th column value
+      				  		printf "%-15s" "| $value" #Prints each column value formatted to a width of 15 characters, prefixed by a |.
+   					 done
+   				echo # Newline after printing all columns in the row
+				done < "$HOME/dbms/$db_name/$tb_name/${tb_name}.data"
+				echo
+				#--------------------------------ENDING DISPLAY DATA-----------------------------
+				break
+				;;
+			"Select With Condition" )
+			    	echo "Retrieving data with a condition from the table \"$tb_name\""
+    				PS3="Choose the column you want to select with condition: "
+    				select option in "${columns_source[@]}" "Exit"; do #here he will choice column name
+					if [[ "$option" == "Exit" ]]; then
+					echo "Exiting condition selection."
+        				break
+      					fi
+					#if he choice correct option i>0 && i<no_these_columns
+					if [[ "$REPLY" -gt 0 && "$REPLY" -le "${#columns_source[@]}" ]]; then
+					echo "You selected: $option"
+				        read -p "Enter the value according to column \"$option\", to be selected: " selected_data
+					# Retrieve the data type of the selected column
+   				        selected_datatype="${datatypes_source[$((REPLY - 1))]}" #The array datatypes_source uses 0-based indexing, If the user selects option 3 (REPLY=3), it accesses datatypes_source[3-1] (datatypes_source[2]), which gives the data type of the 3rd column.
+         				column_index="$REPLY" #stores the column number (the user's selection) in a separate variable (column_index) for later use.
+						 if { [[ "$selected_datatype" == "Integer" ]] && get_positive_integer "$selected_data"; } || \
+               				  	  { [[ "$selected_datatype" == "String" ]] && validate_letters_spaces "$selected_data"; }; then
+                					
+                					 # Extract matching rows based on the condition
+             						   matching_rows=()
+              						  while IFS= read -r line; do
+                					    column_value=$(echo "$line" | cut -d: -f"$column_index")
+                   						 if [[ "$column_value" == "$selected_data" ]]; then
+                    					    matching_rows+=("$line")
+                  						  fi
+               						 done < "$data_file"
+               						  
+               						 # Display the results
+                					if [[ ${#matching_rows[@]} -eq 0 ]]; then
+                    						echo "No matching rows found for value '$selected_data' in column \"$option\"."
+                					else
+                						echo "Matching rows:"
+                   						print_header "${#columns_source[@]}"
+                    						print_separator "${#columns_source[@]}" "${columns_source[@]}"
+                    						print_header "${#columns_source[@]}"
+                    						
+                    						for row in "${matching_rows[@]}"; do
+                        						for ((j = 1; j <= ${#columns_source[@]}; j++)); do
+                          							value=$(echo "$row" | cut -d: -f$j)
+                        							printf "%-15s" "| $value"
+                    							 done
+                    							 echo
+                   						done
+                					fi
+                				 else
+                					echo "Invalid value for column \"$option\". Expected type: \"$selected_datatype\"."
+           					 fi
+                			else
+            					echo "Invalid choice: $REPLY. Please select a valid column or exit."
+					fi
+					break
+      				
+      				done	
+      				echo
+    				break
+    				;;
+	
+			"Exit" )
+				break 3
+				;;
+			*)
+				echo "Unknown Option!"
+		
+		
+			esac
+		done
+		done
+		#--------------------DATA SELECTED SUCCESSFULLY----------------------------------------
+	else
+        	echo "This Table \"$tb_name\" does not exist. Please try again!"
+       		continue # Retry asking for the table name	
+	fi
+	break # Exit the loop after successful operation	
+done
+echo "Returning to secondary menu..." # Final messages
