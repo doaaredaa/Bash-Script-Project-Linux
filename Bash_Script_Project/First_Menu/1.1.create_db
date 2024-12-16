@@ -1,0 +1,26 @@
+#! /usr/bin/bash
+while true;
+do
+read -p "Please Enter your Database Name: " db_name
+    # Replace spaces with underscores
+    db_name=$(echo $db_name | tr ' ' '_')
+
+if [ -z $db_name ]; then
+	echo  "The database cannot be empty or contain spaces."
+	continue # Go back to asking for the name again
+	
+elif [ -e $HOME/dbms/$db_name ]; then
+	echo "Your Database already exists!"
+	continue # Go back to asking for the name again
+
+elif validate_letters_numbers_specific_place $db_name ; then
+	mkdir $HOME/dbms/$db_name
+	echo "Database \"$db_name\" is created successsfully! "
+	break # Exit the loop after successful creation
+
+else 
+	echo "Invalid input! Database names must (start) with a letter & Max lenght is 20."
+	continue # Go back to asking for the name again
+	
+fi
+done

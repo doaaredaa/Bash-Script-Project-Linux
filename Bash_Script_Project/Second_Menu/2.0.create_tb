@@ -1,0 +1,139 @@
+#! /usr/bin/bash
+while true; do
+	read -p "Please Enter Table Name you want to create: " tb_name
+    	tb_name=$(echo $tb_name | tr ' ' '_') # Replace spaces with underscores
+
+	if [ -z $tb_name ]; then
+		echo "Not Allowed! Table name can't be empty."
+		continue # Go back to asking for the name again
+	
+	elif [ -e $HOME/dbms/$db_name/$tb_name ]; then
+		echo "Table name already exists!"
+		continue # Go back to asking for the name again
+
+	elif validate_letters_numbers_specific_place $tb_name ; then
+		mkdir -p $HOME/dbms/$db_name/$tb_name
+		echo "Table \"$tb_name\" is created successsfully! "
+		
+		#-------Create metadata_file------------
+		metadata_file="$HOME/dbms/$db_name/$tb_name/${tb_name}.metadata"
+		if [ ! -f $metadata_file ]; then
+   			touch $metadata_file
+		fi
+		#-------Create User_data------------
+		user_data="$HOME/dbms/$db_name/$tb_name/${tb_name}.data"
+		if [ ! -f $user_data ]; then
+   			touch $user_data
+		fi		
+		#---------------------Creation Columns-------------------------------
+		while true; do
+		read -p "How many columns would you like in your table? " no_of_columns
+		if [ -z $no_of_columns ]; then
+			echo "Input cannot be empty."
+			continue  #Go back to asking for the number of columns again
+			
+		elif ! get_positive_integer $no_of_columns; then 
+ 			echo "Invalid input. Please enter a positive integer (greater than 0) & Max lenght is 20."
+			continue # Go back to asking for the number of columns again
+		fi
+		
+		#--------------For Loop to Iterates the number of columns -----------
+		col_counter=1	
+		#--------------------PK Validation-------------------------
+		if [ $col_counter -eq 1 ]; then # If it's the first column, it's the primary key
+		while true; do 
+			read -p "Please Enter Primary Key column Name: " pk
+                	pk=$(echo $pk | tr ' ' '_') # Replace spaces with underscores
+                	if [ -z $pk ]; then
+                		echo "Column Name cannot be empty."
+                		continue # Go back to asking for PK column name again
+                		
+                	elif ! validate_letters_numbers_specific_place "$pk"; then
+                		 echo "Invalid input! PK names must (start) with a letter & Max lenght is 20."
+                		 continue
+                		
+                	elif grep -q "^Primary Key: $pk" "$metadata_file"; then
+				echo "Column Name \"$pk\" already exists!"
+				continue # Go back to asking for the name again
+                		
+                	else 
+                		#-----------PK is Valid! Check its Data Type-------------
+                		echo "Data Types for Primary Key \"$pk\" "
+                		PS3="Please Choose your Data Type: "
+                		select pk_type in "Integer" "String"
+                		do
+                			case $pk_type in
+                			"Integer" )
+                				pk_datatype="Integer"
+                				break;;
+                			"String" )
+                				pk_datatype="String"
+                				break;;
+                			*)
+                				echo "Unknown Input"
+                				;;		
+                			esac
+                		done
+				#_______Data Type is Done------------
+                		echo "$pk:$pk_datatype:PK" >> $HOME/dbms/$db_name/$tb_name/${tb_name}.metadata
+                		echo "Primary Key \"$pk\" and its Data Type \"$pk_datatype\" added successfully."
+				break # Exit the loop after setting the PK	
+                	fi 
+		done
+	fi	
+		#--------------------PK Validation is Done ------------------
+		#-------------------------------------------------------------
+		#---------------------Creation other columns------------------		
+		while [ $col_counter -lt $no_of_columns ]; do 
+		read -p "Please Enter the Column name you want : " col_name
+		col_name=$(echo $col_name | tr ' ' '_') # Replace spaces with underscores
+			if [ -z $col_name ]; then #check empty input
+                		echo "Column Name cannot be empty."
+                		continue # Go back to asking for column name again
+                			
+                	elif ! validate_letters_numbers_specific_place "$col_name"; then 
+                		echo "Invalid input! Column names must (start) with a letter & Max lenght is 20."
+                		continue
+                				
+                	elif grep -q "$col_name" "$metadata_file"; then #check if name exists in metadata
+				echo "Column Named \"$col_name\" already exists!"
+				continue # Go back to asking for the name again
+                	
+                	else
+                		#-----------Column Name is Valid! Check its Data Type-------------
+                		echo "Data Types for Column Named \"$col_name\" "
+                		PS3="Please Choose your Data Type: "
+                		select col_type in "Integer" "String"
+                		do
+                		case $col_type in
+                			"Integer" )
+                				col_datatype="Integer"
+                				break;;
+                			"String" )
+                				col_datatype="String"
+                				break;;
+                			*)
+                				echo "Unknown Input";;		
+                		esac
+                		done
+				#_______Data Type is Done------------
+                		echo "$col_name:$col_datatype" >> $HOME/dbms/$db_name/$tb_name/${tb_name}.metadata
+                		echo "Column Named \"$col_name\" and its Data Type \"$col_datatype\" added successfully."
+                		col_counter=$((col_counter+1))        			
+			fi
+		done
+		break  # Exit the column creation loop after all columns are created 
+		done
+		echo
+		echo "Table \"$tb_name\" created successfully with $no_of_columns columns!" 
+		break # Exit the outer loop after creating the table 
+
+		#---------------------End of Creation columns-------------------------------
+	else 
+		echo "Invalid input! Table names must (start) with a letter & Max lenght is 20."
+		continue # Go back to asking for the name again
+	
+	fi
+done      
+echo "Returning to secondary menu..." # Final exit message
+echo
